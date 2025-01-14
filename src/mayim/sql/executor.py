@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 from contextlib import asynccontextmanager
 from functools import wraps
-from inspect import Parameter, getmembers, isawaitable, isfunction, signature
+from inspect import Parameter, getmembers, isawaitable, isfunction, isclass, signature
 from pathlib import Path
 from typing import (
     Any,
@@ -13,9 +13,11 @@ from typing import (
     Sequence,
     Type,
     Union,
+    Coroutine,
     get_args,
     get_origin,
 )
+from collections.abc import Coroutine as ABC_Coroutine
 
 from mayim.base.executor import Executor, is_auto_exec
 from mayim.base.query import Query
@@ -278,6 +280,14 @@ class SQLExecutor(Executor[SQLQuery]):
 
         if model is not None and (origin := get_origin(model)):
             check_model = True
+            
+            if origin and isclass(origin) and issubclass(origin, ABC_Coroutine):
+                # Extract the return type of the coroutine
+                model = get_args(model)[2] 
+                origin = get_origin(model)
+                if not origin:
+                    check_model = False
+            
             if origin is UnionType or origin is Union:
                 args = get_args(model)
                 allow_none = True
